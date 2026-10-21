@@ -41,6 +41,7 @@ io_worker = read_text("io_worker.js")
 gpu_worker = read_text("wgpu_worker.js")
 game_js = read_text("game.js")
 read_text("serve_local.py")
+ai_endpoint = read_text("functions/api/game-ai.js")
 
 # Parse HTML enough to catch duplicate IDs, which break the access and diagnostics UI.
 class IdAudit(HTMLParser):
@@ -68,7 +69,7 @@ except Exception as exc:
 
 required_ids = {
     "canvas", "loading", "label", "pct", "fill", "fps", "hud",
-    "access-lock", "access-form", "access-code", "access-error", "graphics-plus", "smart-advisor", "ai-advisor", "ai-advisor-message", "ai-advisor-safe", "ai-advisor-dismiss",
+    "access-lock", "access-form", "access-code", "access-error", "graphics-plus", "smart-advisor", "ai-advisor", "ai-advisor-message", "ai-advisor-safe", "ai-advisor-dismiss", "game-ai-launch", "game-ai-panel", "game-ai-status", "game-ai-answer", "game-ai-analyze", "game-ai-apply", "game-ai-close",
     "game-doctor", "doctor-title", "doctor-advice", "doctor-detail",
     "doctor-reload", "doctor-safe", "doctor-copy", "doctor-close",
 }
@@ -113,6 +114,11 @@ check("function chooseSmartGraphicsProfile()" in module
       and "observeSmartFps(ev.data.fps)" in module
       and "function restartInSafeMode()" in module,
       "smart advisor tunes settings and detects sustained low FPS")
+check('fetch("/api/game-ai")' in module and "async function askGameAI()" in module,
+      "in-game AI coach calls the server endpoint")
+check("gameAiLastFps = Number(ev.data.fps)" in module,
+      "in-game AI can use the latest reported FPS")
+
 
 # Full JS parser checks run in CI where Node.js is installed.
 node = shutil.which("node")
@@ -121,6 +127,7 @@ if not node:
     print("WARN  Node.js not found; JavaScript syntax checks were skipped.")
 else:
     js_files = {
+        "game-ai-api.js": ai_endpoint,
         "loader.js": loader,
         "io_worker.js": io_worker,
         "wgpu_worker.js": gpu_worker,

@@ -63,6 +63,20 @@
 	#ai-advisor { position: fixed; right: 16px; bottom: 20px; z-index: 40000; width: min(490px, calc(100vw - 32px)); box-sizing: border-box; padding: 16px; border: 1px solid #3c867b; border-left: 3px solid #75d8c4; border-radius: 7px; background: rgba(10,20,21,.97); box-shadow: 0 12px 44px rgba(0,0,0,.6); color: #f0ffff; font: 13px/1.45 Arial,sans-serif; }
 	#ai-advisor strong { color: #75d8c4; font-size: 11px; letter-spacing: .09em; }
 	#ai-advisor-message { margin: 6px 0 12px; color: #c7d5d6; }
+
+	#game-ai-launch[hidden], #game-ai-panel[hidden] { display: none !important; }
+	#game-ai-launch { position: fixed; right: 16px; bottom: 16px; z-index: 39990; border: 1px solid #61cbb7; border-radius: 999px; padding: 11px 15px; background: rgba(12,39,37,.96); color: #ecfffc; box-shadow: 0 8px 30px rgba(0,0,0,.5); font: 800 11px/1 Arial,sans-serif; letter-spacing: .1em; cursor: pointer; }
+	#game-ai-panel { position: fixed; right: 16px; bottom: 66px; z-index: 39995; width: min(430px, calc(100vw - 32px)); max-height: 72vh; overflow: auto; box-sizing: border-box; padding: 16px; border: 1px solid #397e75; border-top: 3px solid #61cbb7; border-radius: 8px; background: rgba(9,17,19,.98); color: #ecfffc; box-shadow: 0 18px 55px rgba(0,0,0,.65); font: 13px/1.45 Arial,sans-serif; }
+	#game-ai-panel h2 { margin: 4px 0 8px; font-size: 20px; }
+	#game-ai-panel .game-ai-intro, #game-ai-panel .game-ai-footnote { color: #c3d2d3; }
+	#game-ai-status { min-height: 1.4em; }
+	#game-ai-answer { white-space: pre-wrap; overflow-wrap: anywhere; color: #e4f1ef; background: #101a1b; border: 1px solid #293e3e; padding: 12px; border-radius: 5px; max-height: 240px; overflow: auto; font: 12px/1.5 Arial,sans-serif; }
+	.game-ai-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+	.game-ai-actions button { border: 1px solid #3d857b; border-radius: 4px; padding: 9px 10px; background: #183b38; color: #fff; font-size: 11px; font-weight: 800; cursor: pointer; }
+	.game-ai-actions button:disabled { opacity: .5; cursor: wait; }
+	.game-ai-actions #game-ai-close { border-color: #465255; background: transparent; color: #d3dfdf; }
+	.game-ai-footnote { font-size: 10px; color: #8fa5a6 !important; }
+
 	.ai-advisor-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 	.ai-advisor-actions button { border: 1px solid #477d78; border-radius: 4px; padding: 8px 10px; background: #183b38; color: #fff; font-weight: 700; cursor: pointer; }
 	.ai-advisor-actions #ai-advisor-dismiss { background: transparent; border-color: #435051; color: #c7d5d6; }
@@ -89,6 +103,20 @@
 <div id="loading"><div id="ls-stage"><div id="ls-screens"></div><img id="ls-logo" src="/b/8b0b5899ed/title/logo.png" alt=""><div id="ls-bars"><div id="modes" class="ls-bar"><button data-act="back"></button><button data-act="map5"></button><button data-act="map6"></button><button data-act="sandbox"></button><button data-act="story"></button></div><div class="ls-bar"><span id="label">Starting...</span><span id="pct">0%</span><i class="ls-spin"></i></div></div></div><div id="ls-log"><div id="data"></div><div id="console"></div></div><div id="bar"><div id="fill"></div></div></div>
 <div id="fps"></div>
 
+<button id="game-ai-launch" type="button" hidden>GAME AI COACH</button>
+<div id="game-ai-panel" hidden role="dialog" aria-modal="false" aria-labelledby="game-ai-title">
+	<p class="doctor-eyebrow">REAL AI · PERFORMANCE COACH</p>
+	<h2 id="game-ai-title">Game Performance Coach</h2>
+	<p class="game-ai-intro">Ask the server AI to analyze your current device capabilities and available FPS, then recommend a graphics profile.</p>
+	<p id="game-ai-status" role="status" aria-live="polite">AI coach ready when you are.</p>
+	<pre id="game-ai-answer">Press ANALYZE GAME to request an AI-generated recommendation.</pre>
+	<div class="game-ai-actions">
+		<button id="game-ai-analyze" type="button">ANALYZE GAME</button>
+		<button id="game-ai-apply" type="button" hidden>APPLY PROFILE</button>
+		<button id="game-ai-close" type="button">CLOSE</button>
+	</div>
+	<p class="game-ai-footnote">Sends only basic device metrics, FPS, the current profile and a short issue summary. The AI cannot rewrite engine code or add hardware ray tracing.</p>
+</div>
 <div id="ai-advisor" hidden role="status" aria-live="polite">
 	<strong>SMART PERFORMANCE ADVISOR</strong>
 	<p id="ai-advisor-message">Monitoring performance.</p>
@@ -274,6 +302,111 @@ document.getElementById('doctor-copy').addEventListener('click', async () => {
 	}
 });
 
+
+let gameAiRequestInFlight = false;
+let gameAiNextAllowedAt = 0;
+let gameAiLastProfile = "balanced";
+let gameAiLastFps = null;
+const gameAiLauncher = document.getElementById("game-ai-launch");
+const gameAiPanel = document.getElementById("game-ai-panel");
+const gameAiStatus = document.getElementById("game-ai-status");
+const gameAiAnswer = document.getElementById("game-ai-answer");
+const gameAiAnalyze = document.getElementById("game-ai-analyze");
+const gameAiApply = document.getElementById("game-ai-apply");
+
+gameAiLauncher.addEventListener("click", () => { gameAiPanel.hidden = !gameAiPanel.hidden; });
+document.getElementById("game-ai-close").addEventListener("click", () => { gameAiPanel.hidden = true; });
+gameAiAnalyze.addEventListener("click", askGameAI);
+gameAiApply.addEventListener("click", applyGameAIProfile);
+
+async function askGameAI() {
+	if (gameAiRequestInFlight) return;
+	if (Date.now() < gameAiNextAllowedAt) {
+		gameAiStatus.textContent = "Please wait a few seconds before another AI request.";
+		return;
+	}
+	gameAiRequestInFlight = true;
+	gameAiNextAllowedAt = Date.now() + 10000;
+	gameAiAnalyze.disabled = true;
+	gameAiApply.hidden = true;
+	gameAiStatus.textContent = "Asking the server AI for an analysis…";
+	gameAiAnswer.textContent = "Reviewing device hints and the reported game status.";
+	try {
+		const issueText = doctorTitle && doctorTitle.textContent !== "Something went wrong"
+			? doctorTitle.textContent + ": " + (doctorAdvice.textContent || "")
+			: (fpsWarningShown ? advisorMessage.textContent : "No runtime error is currently recorded.");
+		const body = {
+			profile: String(smartTuneProfile || "Unknown").slice(0, 100),
+			fps: Number.isFinite(gameAiLastFps) ? gameAiLastFps : null,
+			issue: String(issueText).slice(0, 800),
+			device: {
+				memoryGb: Number.isFinite(navigator.deviceMemory) ? navigator.deviceMemory : null,
+				cpuThreads: Number.isFinite(navigator.hardwareConcurrency) ? navigator.hardwareConcurrency : null,
+				webgpu: !!navigator.gpu,
+				crossOriginIsolated: !!self.crossOriginIsolated,
+				graphicsPlus: !!graphicsToggle.checked,
+				screenWidth: Number(screen.width || innerWidth),
+				screenHeight: Number(screen.height || innerHeight),
+				devicePixelRatio: Number(devicePixelRatio || 1)
+			}
+		};
+		const response = await fetch("/api/game-ai", {
+			method: "POST",
+			headers: { "content-type": "application/json", "accept": "application/json" },
+			body: JSON.stringify(body),
+			cache: "no-store",
+			credentials: "same-origin"
+		});
+		const result = await response.json().catch(() => ({}));
+		if (!response.ok || !result.ok) throw new Error(result.error || ("AI service returned HTTP " + response.status));
+		gameAiLastProfile = ["efficiency", "balanced", "quality"].includes(result.profile) ? result.profile : "balanced";
+		gameAiAnswer.textContent = String(result.advice || "The AI returned no recommendation.") +
+			"\n\nSuggested profile: " + gameAiLastProfile.toUpperCase() +
+			"\nModel: " + String(result.model || "Workers AI");
+		gameAiStatus.textContent = "Analysis complete. Review the advice before applying the suggested settings.";
+		gameAiApply.hidden = false;
+	} catch (error) {
+		gameAiStatus.textContent = "The real AI service is not available yet.";
+		gameAiAnswer.textContent = String(error && error.message || error) +
+			"\n\nThe local Smart Performance Advisor and Safe Mode remain available. The server must be deployed with its Workers AI binding enabled.";
+	} finally {
+		gameAiRequestInFlight = false;
+		gameAiAnalyze.disabled = false;
+	}
+}
+
+function applyGameAIProfile() {
+	const next = new URL(location.href);
+	let profile = gameAiLastProfile;
+	const mem = navigator.deviceMemory || 4;
+	const threads = navigator.hardwareConcurrency || 4;
+	if (profile === "quality" && (mem < 8 || threads < 8 || !navigator.gpu)) profile = "balanced";
+	if (profile === "efficiency") {
+		next.searchParams.set("low", "1");
+		next.searchParams.set("fps", "30");
+		next.searchParams.set("res", "1280x720");
+		next.searchParams.delete("scale");
+		next.searchParams.delete("clarity");
+		next.searchParams.delete("shadows");
+	} else if (profile === "quality") {
+		next.searchParams.set("low", "0");
+		next.searchParams.set("fps", "60");
+		next.searchParams.set("res", "1920x1080");
+		next.searchParams.delete("scale");
+		if (graphicsToggle.checked) next.searchParams.set("clarity", "1");
+		else next.searchParams.delete("clarity");
+	} else {
+		next.searchParams.set("low", "0");
+		next.searchParams.set("fps", "60");
+		next.searchParams.set("scale", "0.85");
+		next.searchParams.delete("res");
+		if (graphicsToggle.checked) next.searchParams.set("clarity", "1");
+		else next.searchParams.delete("clarity");
+	}
+	next.searchParams.set("smart", "1");
+	location.replace(next.toString());
+}
+
 const ACCESS_CODE = "Abdullah_Chico";
 const accessLock = document.getElementById("access-lock");
 const accessForm = document.getElementById("access-form");
@@ -289,6 +422,7 @@ await new Promise((resolve) => {
 			else { smartTuneProfile = 'Manual settings'; q.set('smart', '0'); if (graphicsToggle.checked) q.set('clarity','1'); else q.delete('clarity'); }
 			accessError.textContent = "";
 			accessLock.hidden = true;
+			document.getElementById("game-ai-launch").hidden = false;
 			resolve();
 		} else {
 			accessError.textContent = "Incorrect code. Please try again.";
@@ -562,7 +696,7 @@ const hud = document.getElementById('hud');
 {
 	const el = document.getElementById('fps');
 	let on = false;
-	new BroadcastChannel('game-fps').onmessage = (ev) => { if (on) el.textContent = Math.round(ev.data.fps) + ' FPS'; observeSmartFps(ev.data.fps); };
+	new BroadcastChannel('game-fps').onmessage = (ev) => { gameAiLastFps = Number(ev.data.fps); if (on) el.textContent = Math.round(ev.data.fps) + ' FPS'; observeSmartFps(ev.data.fps); };
 	const isToggle = (e) => e.code === 'Equal' && !e.ctrlKey && !e.altKey && !e.metaKey;
 	addEventListener('keydown', (e) => {
 		if (!isToggle(e)) return;
