@@ -19,8 +19,9 @@ The page supports URL options such as:
 - `fps=60` — request a 60 FPS target where supported.
 - `res=1920x1080` — request a 1920×1080 render size.
 - `shadows=1` — use the project's current shadow setting.
+- `clarity=1` — enable the optional GPU sharpening pass (adds work per pixel).
 
-Example: `?low=0&fps=60&res=1920x1080&shadows=1`
+Example: `?low=0&fps=60&res=1920x1080&shadows=1&clarity=1`
 
 Real performance depends on your device, browser, GPU, and available game data. A sharpening pass can improve perceived clarity, but it is not AI upscaling. True AI upscaling, AI texture enhancement, and AI-generated reflections need compatible models and deeper renderer integration.
 
