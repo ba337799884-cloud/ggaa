@@ -54,6 +54,19 @@
 	#access-error { min-height: 20px; margin: 10px 0 0; color: #ff8f8f; font-size: 12px; }
 	.access-free { margin-top: 18px; color: #787f88; font-size: 10px; letter-spacing: .15em; text-align: center; }
 
+
+	#game-doctor[hidden] { display: none !important; }
+	#game-doctor { position: fixed; inset: 0; z-index: 50000; display: flex; align-items: center; justify-content: center; padding: 18px; box-sizing: border-box; background: rgba(0,0,0,.88); color: #f4f5f7; font: 14px/1.45 Arial, sans-serif; }
+	.doctor-card { width: min(680px, 100%); max-height: min(86vh, 780px); overflow: auto; box-sizing: border-box; padding: 24px; border: 1px solid #555d68; border-top: 3px solid #ffb547; border-radius: 8px; background: #111419; box-shadow: 0 24px 80px #000; }
+	.doctor-eyebrow { color: #ffb547; font-size: 11px; font-weight: 800; letter-spacing: .2em; }
+	.doctor-card h2 { margin: 10px 0 8px; font-size: 26px; line-height: 1.15; }
+	#doctor-detail { max-height: 180px; overflow: auto; padding: 12px; border: 1px solid #353b44; border-radius: 4px; background: #090b0e; color: #e3e7ed; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.45 Consolas, monospace; }
+	#doctor-advice { color: #c2c8d1; }
+	.doctor-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+	.doctor-actions button { padding: 10px 13px; border: 1px solid #515965; border-radius: 4px; background: #222831; color: #fff; cursor: pointer; font-weight: 700; }
+	.doctor-actions #doctor-reload { border-color: #ffb547; background: #ffb547; color: #181818; }
+	.doctor-actions button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
 </style>
 </head>
 <body>
@@ -61,6 +74,20 @@
 <div id="hud"></div>
 <div id="loading"><div id="ls-stage"><div id="ls-screens"></div><img id="ls-logo" src="/b/8b0b5899ed/title/logo.png" alt=""><div id="ls-bars"><div id="modes" class="ls-bar"><button data-act="back"></button><button data-act="map5"></button><button data-act="map6"></button><button data-act="sandbox"></button><button data-act="story"></button></div><div class="ls-bar"><span id="label">Starting...</span><span id="pct">0%</span><i class="ls-spin"></i></div></div></div><div id="ls-log"><div id="data"></div><div id="console"></div></div><div id="bar"><div id="fill"></div></div></div>
 <div id="fps"></div>
+
+<div id="game-doctor" hidden role="alertdialog" aria-modal="true" aria-labelledby="doctor-title">
+	<section class="doctor-card">
+		<div class="doctor-eyebrow">GAME DOCTOR · RUNTIME DIAGNOSTICS</div>
+		<h2 id="doctor-title">Something went wrong</h2>
+		<p id="doctor-advice">The game detected a problem. Read the details below and try the suggested fix.</p>
+		<pre id="doctor-detail"></pre>
+		<div class="doctor-actions">
+			<button id="doctor-reload" type="button">RELOAD GAME</button>
+			<button id="doctor-copy" type="button">COPY DIAGNOSTICS</button>
+			<button id="doctor-close" type="button">CLOSE</button>
+		</div>
+	</section>
+</div>
 
 <div id="access-lock" role="dialog" aria-modal="true" aria-labelledby="access-title">
 	<form class="access-card" id="access-form">
@@ -80,6 +107,59 @@
 // main() run and which may block); the page only owns the canvas, which is transferred to that worker and on to the GPU worker.
 // Query string: ?args=-flag1,-flag2=value (added to the engine command line), ?shot=N (screenshot of every N-th present to the dev server).
 const q = new URLSearchParams(location.search);
+
+const doctorPanel = document.getElementById('game-doctor');
+const doctorTitle = document.getElementById('doctor-title');
+const doctorAdvice = document.getElementById('doctor-advice');
+const doctorDetail = document.getElementById('doctor-detail');
+let lastDoctorReport = '';
+function showGameIssue(title, detail, advice) {
+	const env = [
+		'URL: ' + location.href,
+		'Browser: ' + navigator.userAgent,
+		'Cross-origin isolated: ' + String(self.crossOriginIsolated),
+		'SharedArrayBuffer: ' + String(typeof SharedArrayBuffer !== 'undefined'),
+		'WebGPU: ' + String(!!navigator.gpu),
+		'Hardware threads: ' + String(navigator.hardwareConcurrency || 'unknown'),
+		'Device memory (GB): ' + String(navigator.deviceMemory || 'unknown')
+	].join('\n');
+	lastDoctorReport = title + '\n' + String(detail || 'No additional details supplied') + '\n\n' + env;
+	doctorTitle.textContent = title;
+	doctorAdvice.textContent = advice || 'Reload the page. If the issue keeps happening, copy the diagnostics and share them for troubleshooting.';
+	doctorDetail.textContent = lastDoctorReport;
+	doctorPanel.hidden = false;
+}
+window.addEventListener('error', (event) => {
+	if (event.target && event.target !== window) {
+		if (event.target instanceof HTMLScriptElement || event.target instanceof HTMLLinkElement) {
+			showGameIssue('A game script or stylesheet failed to load', event.target.src || event.target.href || 'Resource URL unavailable', 'Check that the website is online and all game files are present, then reload.');
+		}
+		return;
+	}
+	if (event.error || event.message) showGameIssue('JavaScript runtime error', event.error && event.error.stack || event.message || 'No error details available', 'Reload the page. If this repeats, use Copy Diagnostics and share the report so the exact failure can be investigated.');
+}, true);
+window.addEventListener('unhandledrejection', (event) => {
+	const reason = event.reason;
+	showGameIssue('An asynchronous game task failed', reason && (reason.stack || reason.message) || String(reason || 'Unknown rejected promise'), 'Reload the page. If it keeps failing, copy the diagnostics and report the message.');
+});
+document.getElementById('doctor-reload').addEventListener('click', () => location.reload());
+document.getElementById('doctor-close').addEventListener('click', () => { doctorPanel.hidden = true; });
+document.getElementById('doctor-copy').addEventListener('click', async () => {
+	const text = lastDoctorReport || 'No diagnostics collected yet.';
+	try {
+		if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(text);
+		else throw new Error('Clipboard API unavailable');
+		doctorAdvice.textContent = 'Diagnostics copied. Share the copied report when asking for help.';
+	} catch (e) {
+		const field = document.createElement('textarea');
+		field.value = text; field.setAttribute('readonly', ''); field.style.position = 'fixed'; field.style.opacity = '0';
+		document.body.appendChild(field); field.select();
+		let copied = false;
+		try { copied = document.execCommand('copy'); } catch (_) {}
+		field.remove();
+		doctorAdvice.textContent = copied ? 'Diagnostics copied. Share the copied report when asking for help.' : 'Copy the text shown above manually and share it when asking for help.';
+	}
+});
 
 const ACCESS_CODE = "Abdullah_Chico";
 const accessLock = document.getElementById("access-lock");
@@ -120,7 +200,7 @@ const postLog = (text) => { if (remoteLog) fetch('/log', { method: 'POST', body:
 		const dev = ' deviceMemory ' + (navigator.deviceMemory || '?') + ' GB, cores ' + navigator.hardwareConcurrency;
 		if (remoteLog && posted++ < 3) fetch('/log', { method: 'POST', body: '[page] CRASH (' + m.kind + ', ' + m.thread + ' thread, wasm heap ' + m.heap + ' MB,' + dev + ', ' + location.search + '): ' + m.text + '\n' + m.tail.join('\n') + '\n' }).catch(() => {});
 		const el = document.getElementById('hud');
-		if (el) { el.textContent = 'The game stopped (' + m.kind + '): ' + m.text.split('\n')[0].slice(0, 200) + (memory ? ' - this looks like a lack of memory: close other tabs and reload.' : ' - reload the page.'); el.style.color = '#f96'; }
+		if (el) { el.textContent = 'The game stopped (' + m.kind + '): ' + m.text.split('\n')[0].slice(0, 200) + (memory ? ' - this looks like a lack of memory: close other tabs and reload.' : ' - reload the page.'); el.style.color = '#f96'; showGameIssue('The game engine stopped (' + m.kind + ')', m.text + (memory ? '\nPossible cause: memory pressure.' : ''), memory ? 'Close other tabs, lower graphics settings, and reload.' : 'Reload. If it repeats, copy the diagnostics and investigate the first engine error in the browser console.'); }
 	};
 }
 // ---- title screen: the game's own loading screen, LOADINGSCREEN_STARTUP (scaleform_frontend.rpf), redone in HTML ----------------------------------------
@@ -318,8 +398,8 @@ showModes();
 			dirty = true;
 			return;
 		}
-		if (m.gpuLost) { hud.textContent = 'The graphics device was lost (' + m.gpuLost + '): the screen will stay black. Reload the page.'; hud.style.color = '#f66'; return; }
-		if (m.error) { label.textContent = m.error; label.style.color = '#e66'; return; }
+		if (m.gpuLost) { hud.textContent = 'The graphics device was lost (' + m.gpuLost + '): the screen will stay black. Reload the page.'; hud.style.color = '#f66'; showGameIssue('Graphics device lost', m.gpuLost, 'Reload the page. If it happens repeatedly, update the graphics driver, close other GPU-heavy tabs, and try the lower-quality settings.'); return; }
+		if (m.error) { label.textContent = m.error; label.style.color = '#e66'; showGameIssue('Game startup reported an error', m.error, 'Check that the game-data files are complete and the website serves the required isolation headers, then reload.'); return; }
 		if (m.pct > target) { target = m.pct; if (m.label) { lastLabel = m.label; if (!waitingChoice) label.textContent = m.label; } if (m.pct >= 72 && worldBase < 0) worldBase = dataBytes; }
 		if (m.choice && !startMode) { waitingChoice = true; modesEl.classList.add('ask'); showModes(); }		// the engine waits for the choice: showModes asks for it in the label
 		if (m.commit) { startCommitted = true; pickingMap = false; if (m.mode) startMode = m.mode; showModes(); }		// the engine took the choice
@@ -337,6 +417,7 @@ showModes();
 		const quiet = (performance.now() - lastActivity) / 1000;
 		if (quiet > 30) {
 			label.textContent = 'No progress for ' + (quiet | 0) + ' s' + (lastLabel ? ' (last step: ' + lastLabel + ')' : '') + ': the device may be out of memory. Close other tabs, or reload.';
+			if (quiet > 60 && !doctorPanel.dataset.stallReported) { doctorPanel.dataset.stallReported = '1'; showGameIssue('The game stopped making progress', 'No engine progress was received for ' + (quiet | 0) + ' seconds. Last reported step: ' + (lastLabel || 'none') + '. Current displayed progress: ' + shown.toFixed(0) + '%.', 'Check the first red browser-console error. Make sure all game-data files are available, enable browser hardware acceleration/WebGPU, close other tabs, then reload.'); }
 			label.style.color = '#e96';
 			if (quiet - stallLogged > 30) { stallLogged = quiet; postLog('[page] STALL: no progress for ' + (quiet | 0) + ' s, last step "' + lastLabel + '", shown ' + shown.toFixed(0) + '%'); }
 		} else if (stallLogged) { stallLogged = 0; label.style.color = ''; }
@@ -405,7 +486,7 @@ async function dropOldCache() {
 }
 let lowMemory = false;		// set below (module scope: the ?mem readout further down also needs it)
 let startSize = [1280, 720], wantSize = null;		// set below (module scope: installInput uses them)
-if (!crossOriginIsolated) { document.getElementById('label').textContent = 'not cross-origin isolated: open the page over https (or localhost); the server sends COOP/COEP'; document.getElementById('label').style.color = '#e66'; }
+if (!crossOriginIsolated) { document.getElementById('label').textContent = 'not cross-origin isolated: open the page over https (or localhost); the server sends COOP/COEP'; document.getElementById('label').style.color = '#e66'; showGameIssue('Browser isolation is not enabled', 'This engine uses SharedArrayBuffer and worker threads, which require a cross-origin-isolated page.', 'Open the site from a server that sends Cross-Origin-Opener-Policy: same-origin and Cross-Origin-Embedder-Policy: require-corp. For local testing, use the provided local server instead of opening the HTML file directly.'); }
 else {
 	const offscreen = canvas.transferControlToOffscreen();
 	await dropOldCache();
@@ -451,7 +532,7 @@ const worker = new Worker(BASE + '/loader.js');
 		if (ev.data.input) installInput(ev.data.input.memory, ev.data.input.block);
 		if (ev.data.audio) { audioPending = ev.data.audio; tryStartAudio(); }
 	};
-	worker.onerror = (e) => { hud.textContent = 'worker error: ' + e.message; };
+	worker.onerror = (e) => { hud.textContent = 'worker error: ' + e.message; showGameIssue('Game worker failed', e.message || 'The worker could not start or stopped unexpectedly.', 'Reload the page. Confirm the required game files exist and that the site is served over HTTPS or localhost with cross-origin isolation.'); };
 	worker.postMessage({
 		canvas: offscreen,
 		base: BASE,
