@@ -65,6 +65,7 @@
 	.doctor-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
 	.doctor-actions button { padding: 10px 13px; border: 1px solid #515965; border-radius: 4px; background: #222831; color: #fff; cursor: pointer; font-weight: 700; }
 	.doctor-actions #doctor-reload { border-color: #ffb547; background: #ffb547; color: #181818; }
+	.doctor-actions #doctor-safe { border-color: #78c8bd; background: #143b39; color: #f2ffff; }
 	.doctor-actions button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 
 </style>
@@ -82,6 +83,7 @@
 		<p id="doctor-advice">The game detected a problem. Read the details below and try the suggested fix.</p>
 		<pre id="doctor-detail"></pre>
 		<div class="doctor-actions">
+			<button id="doctor-safe" type="button">RESTART IN SAFE MODE</button>
 			<button id="doctor-reload" type="button">RELOAD GAME</button>
 			<button id="doctor-copy" type="button">COPY DIAGNOSTICS</button>
 			<button id="doctor-close" type="button">CLOSE</button>
@@ -143,6 +145,18 @@ window.addEventListener('unhandledrejection', (event) => {
 	showGameIssue('An asynchronous game task failed', reason && (reason.stack || reason.message) || String(reason || 'Unknown rejected promise'), 'Reload the page. If it keeps failing, copy the diagnostics and report the message.');
 });
 document.getElementById('doctor-reload').addEventListener('click', () => location.reload());
+document.getElementById('doctor-safe').addEventListener('click', () => {
+	const safeUrl = new URL(location.href);
+	safeUrl.searchParams.set('low', '1');
+	safeUrl.searchParams.set('fps', '30');
+	safeUrl.searchParams.set('res', '1280x720');
+	safeUrl.searchParams.delete('clarity');
+	safeUrl.searchParams.delete('shadows');
+	safeUrl.searchParams.delete('args');
+	safeUrl.searchParams.delete('shot');
+	safeUrl.searchParams.delete('shotrt');
+	location.replace(safeUrl.toString());
+});
 document.getElementById('doctor-close').addEventListener('click', () => { doctorPanel.hidden = true; });
 document.getElementById('doctor-copy').addEventListener('click', async () => {
 	const text = lastDoctorReport || 'No diagnostics collected yet.';
