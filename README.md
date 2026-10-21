@@ -31,7 +31,7 @@ The game now shows a client-side access prompt before the engine starts. Enter t
 
 ## Diagnostics and recovery
 
-The browser page includes a Game Doctor panel for JavaScript errors, failed engine tasks, GPU device loss, and startup stalls. It records basic browser capability information and lets you copy a diagnostic report or reload. This is rule-based diagnostics, not an AI system, and it cannot rewrite broken engine code automatically. The repository also includes an automated syntax/guard check workflow to catch several source-level problems before release.
+The browser page includes a Game Doctor panel for JavaScript errors, failed engine tasks, GPU device loss, and startup stalls. It records basic browser capability information and lets you copy a diagnostic report, reload normally, or restart with a lower-load safe profile. This is rule-based diagnostics, not an AI system, and it cannot rewrite broken engine code automatically. The repository also includes an automated syntax/guard check workflow to catch several source-level problems before release.
 
 ## Notes
 
