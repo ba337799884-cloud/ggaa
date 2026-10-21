@@ -31,8 +31,13 @@ The game now shows a client-side access prompt before the engine starts. Enter t
 
 ## Diagnostics and recovery
 
-The browser page includes a Game Doctor panel for JavaScript errors, failed engine tasks, GPU device loss, and startup stalls. It records basic browser capability information and lets you copy a diagnostic report, reload normally, or restart with a lower-load safe profile. This is rule-based diagnostics, not an AI system, and it cannot rewrite broken engine code automatically. The repository also includes an automated syntax/guard check workflow to catch several source-level problems before release.
+The browser page includes a Smart Performance Advisor that uses on-device hardware hints to pick an Efficiency, Balanced, or Quality profile and watches reported FPS after the world loads. It can recommend a lower-load restart. This is deterministic, local rules-based assistance—not a trained AI model or a promise of 4K/60 FPS on every device. The Game Doctor detects JavaScript errors, failed engine tasks, GPU device loss, and startup stalls, and offers diagnostics, reload, and safe-mode recovery. This is rule-based diagnostics, not an AI system, and it cannot rewrite broken engine code automatically. The repository also includes an automated syntax/guard check workflow to catch several source-level problems before release.
 
 ## Notes
 
 This repository contains runtime/client code and a local launcher. It does not include proprietary game data or provide a ready-to-play public game server. Keep existing license notices intact and only use assets and game data you are authorized to use.
+
+
+## Visual reference target
+
+The linked walkthrough description highlights open-world exploration on foot and in vehicles, with a 4K/60 FPS target in the video metadata. See [reference walkthrough](https://mastersingaming.com/2026/06/12/gta-5-gameplay-walkthrough-full-game-4k-60fps-no-commentary/). This is a visual target, not a performance guarantee; no scene-by-scene video comparison was completed. Use the advisor to pick a device-appropriate profile.

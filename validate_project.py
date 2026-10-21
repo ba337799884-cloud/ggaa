@@ -68,7 +68,7 @@ except Exception as exc:
 
 required_ids = {
     "canvas", "loading", "label", "pct", "fill", "fps", "hud",
-    "access-lock", "access-form", "access-code", "access-error", "graphics-plus",
+    "access-lock", "access-form", "access-code", "access-error", "graphics-plus", "smart-advisor", "ai-advisor", "ai-advisor-message", "ai-advisor-safe", "ai-advisor-dismiss",
     "game-doctor", "doctor-title", "doctor-advice", "doctor-detail",
     "doctor-reload", "doctor-safe", "doctor-copy", "doctor-close",
 }
@@ -106,6 +106,13 @@ check("clarity: q.get('clarity') === '1'" in html
       and "const clarityEnabled" in gpu_worker
       and "let sharpened = clamp" in gpu_worker,
       "optional clarity setting is connected from page to GPU shader")
+check('id="smart-advisor"' in html and "SMART PERFORMANCE ADVISOR" in html,
+      "smart performance advisor toggle exists")
+check("function chooseSmartGraphicsProfile()" in module
+      and "function observeSmartFps(fps)" in module
+      and "observeSmartFps(ev.data.fps)" in module
+      and "function restartInSafeMode()" in module,
+      "smart advisor tunes settings and detects sustained low FPS")
 
 # Full JS parser checks run in CI where Node.js is installed.
 node = shutil.which("node")

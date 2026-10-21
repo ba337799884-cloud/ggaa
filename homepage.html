@@ -57,6 +57,15 @@
 	.access-enhance input { margin-top: 3px; accent-color: #f0c341; width: 16px; height: 16px; flex: 0 0 auto; }
 	.access-enhance strong { display: block; color: #f0c341; font-size: 11px; letter-spacing: .09em; }
 	.access-enhance small { display: block; margin-top: 4px; color: #aeb6c0; font-size: 11px; line-height: 1.4; }
+	.smart-advisor { border-color: #375c58; background: #111e1e; }
+	.smart-advisor strong { color: #75d8c4; }
+	#ai-advisor[hidden] { display: none !important; }
+	#ai-advisor { position: fixed; right: 16px; bottom: 20px; z-index: 40000; width: min(490px, calc(100vw - 32px)); box-sizing: border-box; padding: 16px; border: 1px solid #3c867b; border-left: 3px solid #75d8c4; border-radius: 7px; background: rgba(10,20,21,.97); box-shadow: 0 12px 44px rgba(0,0,0,.6); color: #f0ffff; font: 13px/1.45 Arial,sans-serif; }
+	#ai-advisor strong { color: #75d8c4; font-size: 11px; letter-spacing: .09em; }
+	#ai-advisor-message { margin: 6px 0 12px; color: #c7d5d6; }
+	.ai-advisor-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+	.ai-advisor-actions button { border: 1px solid #477d78; border-radius: 4px; padding: 8px 10px; background: #183b38; color: #fff; font-weight: 700; cursor: pointer; }
+	.ai-advisor-actions #ai-advisor-dismiss { background: transparent; border-color: #435051; color: #c7d5d6; }
 
 
 	#game-doctor[hidden] { display: none !important; }
@@ -80,6 +89,14 @@
 <div id="loading"><div id="ls-stage"><div id="ls-screens"></div><img id="ls-logo" src="/b/8b0b5899ed/title/logo.png" alt=""><div id="ls-bars"><div id="modes" class="ls-bar"><button data-act="back"></button><button data-act="map5"></button><button data-act="map6"></button><button data-act="sandbox"></button><button data-act="story"></button></div><div class="ls-bar"><span id="label">Starting...</span><span id="pct">0%</span><i class="ls-spin"></i></div></div></div><div id="ls-log"><div id="data"></div><div id="console"></div></div><div id="bar"><div id="fill"></div></div></div>
 <div id="fps"></div>
 
+<div id="ai-advisor" hidden role="status" aria-live="polite">
+	<strong>SMART PERFORMANCE ADVISOR</strong>
+	<p id="ai-advisor-message">Monitoring performance.</p>
+	<div class="ai-advisor-actions">
+		<button id="ai-advisor-safe" type="button">APPLY SAFE MODE</button>
+		<button id="ai-advisor-dismiss" type="button">DISMISS</button>
+	</div>
+</div>
 <div id="game-doctor" hidden role="alertdialog" aria-modal="true" aria-labelledby="doctor-title">
 	<section class="doctor-card">
 		<div class="doctor-eyebrow">GAME DOCTOR · RUNTIME DIAGNOSTICS</div>
@@ -102,6 +119,10 @@
 		<p>This game is free to play. Enter your access code to continue.</p>
 		<label for="access-code">ACCESS CODE</label>
 		<input id="access-code" name="access-code" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" required aria-describedby="access-error">
+		<label class="access-enhance smart-advisor" for="smart-advisor">
+			<input id="smart-advisor" type="checkbox" checked>
+			<span><strong>SMART PERFORMANCE ADVISOR</strong><small>Checks your browser, reported memory, CPU threads and live FPS. It picks safer graphics settings when needed. On-device rules only: no subscription or API key, and not a trained AI model.</small></span>
+		</label>
 		<label class="access-enhance" for="graphics-plus">
 			<input id="graphics-plus" type="checkbox">
 			<span><strong>GRAPHICS PLUS · AI-INSPIRED</strong><small>Sharper image and subtle color/contrast tuning. This is a lightweight shader effect, not a separate AI model.</small></span>
@@ -117,6 +138,77 @@
 // main() run and which may block); the page only owns the canvas, which is transferred to that worker and on to the GPU worker.
 // Query string: ?args=-flag1,-flag2=value (added to the engine command line), ?shot=N (screenshot of every N-th present to the dev server).
 const q = new URLSearchParams(location.search);
+const smartAdvisorToggle = document.getElementById('smart-advisor');
+smartAdvisorToggle.checked = q.get('smart') !== '0';
+let smartTuneProfile = 'Manual settings';
+let worldReadyForAdvisor = false;
+let lowFpsSamples = 0;
+let fpsWarningShown = false;
+const advisorNotice = document.getElementById('ai-advisor');
+const advisorMessage = document.getElementById('ai-advisor-message');
+
+function chooseSmartGraphicsProfile() {
+	// Deterministic on-device advisor: browser capability hints only; no cloud data collection.
+	const memoryGb = navigator.deviceMemory || 4;
+	const cpuThreads = navigator.hardwareConcurrency || 4;
+	const capableGpu = !!navigator.gpu;
+	const physicalWidth = (screen.width || innerWidth) * (devicePixelRatio || 1);
+	const physicalHeight = (screen.height || innerHeight) * (devicePixelRatio || 1);
+	if (memoryGb <= 4 || cpuThreads <= 4 || !capableGpu) {
+		q.set('low', '1');
+		q.set('fps', '30');
+		q.set('res', '1280x720');
+		q.delete('scale');
+		q.delete('clarity');
+		q.delete('shadows');
+		graphicsToggle.checked = false;
+		smartTuneProfile = 'Efficiency · 720p / 30 FPS';
+	} else if (memoryGb >= 8 && cpuThreads >= 8 && capableGpu && physicalWidth >= 1920 && physicalHeight >= 1080) {
+		q.set('low', '0');
+		q.set('fps', '60');
+		q.set('res', '1920x1080');
+		q.delete('scale');
+		if (graphicsToggle.checked) q.set('clarity', '1'); else q.delete('clarity');
+		smartTuneProfile = 'Quality · 1080p / 60 FPS target';
+	} else {
+		q.set('low', '0');
+		q.set('fps', '60');
+		q.delete('res');
+		q.set('scale', '0.85');
+		if (graphicsToggle.checked) q.set('clarity', '1'); else q.delete('clarity');
+		smartTuneProfile = 'Balanced · 85% render scale / 60 FPS target';
+	}
+	q.set('smart', '1');
+}
+
+function restartInSafeMode() {
+	const safeUrl = new URL(location.href);
+	safeUrl.searchParams.set('low', '1');
+	safeUrl.searchParams.set('fps', '30');
+	safeUrl.searchParams.set('res', '1280x720');
+	safeUrl.searchParams.delete('scale');
+	safeUrl.searchParams.delete('clarity');
+	safeUrl.searchParams.delete('shadows');
+	safeUrl.searchParams.delete('args');
+	safeUrl.searchParams.delete('shot');
+	safeUrl.searchParams.delete('shotrt');
+	location.replace(safeUrl.toString());
+}
+
+function observeSmartFps(fps) {
+	if (!worldReadyForAdvisor || !Number.isFinite(fps)) return;
+	const threshold = q.get('fps') === '30' ? 18 : 27;
+	if (fps < threshold) lowFpsSamples++;
+	else lowFpsSamples = Math.max(0, lowFpsSamples - 2);
+	if (lowFpsSamples >= 6 && !fpsWarningShown) {
+		fpsWarningShown = true;
+		advisorMessage.textContent = 'FPS has stayed low for several seconds. You can switch to 720p / 30 FPS, reduce effects and reload.';
+		advisorNotice.hidden = false;
+	}
+}
+document.getElementById('ai-advisor-safe').addEventListener('click', restartInSafeMode);
+document.getElementById('ai-advisor-dismiss').addEventListener('click', () => { advisorNotice.hidden = true; });
+
 const graphicsToggle = document.getElementById('graphics-plus');
 graphicsToggle.checked = q.get('clarity') === '1';
 graphicsToggle.addEventListener('change', () => {
@@ -163,18 +255,7 @@ window.addEventListener('unhandledrejection', (event) => {
 	showGameIssue('An asynchronous game task failed', reason && (reason.stack || reason.message) || String(reason || 'Unknown rejected promise'), 'Reload the page. If it keeps failing, copy the diagnostics and report the message.');
 });
 document.getElementById('doctor-reload').addEventListener('click', () => location.reload());
-document.getElementById('doctor-safe').addEventListener('click', () => {
-	const safeUrl = new URL(location.href);
-	safeUrl.searchParams.set('low', '1');
-	safeUrl.searchParams.set('fps', '30');
-	safeUrl.searchParams.set('res', '1280x720');
-	safeUrl.searchParams.delete('clarity');
-	safeUrl.searchParams.delete('shadows');
-	safeUrl.searchParams.delete('args');
-	safeUrl.searchParams.delete('shot');
-	safeUrl.searchParams.delete('shotrt');
-	location.replace(safeUrl.toString());
-});
+document.getElementById('doctor-safe').addEventListener('click', restartInSafeMode);
 document.getElementById('doctor-close').addEventListener('click', () => { doctorPanel.hidden = true; });
 document.getElementById('doctor-copy').addEventListener('click', async () => {
 	const text = lastDoctorReport || 'No diagnostics collected yet.';
@@ -204,6 +285,8 @@ await new Promise((resolve) => {
 	accessForm.addEventListener("submit", (event) => {
 		event.preventDefault();
 		if (accessInput.value === ACCESS_CODE) {
+			if (smartAdvisorToggle.checked) chooseSmartGraphicsProfile();
+			else { smartTuneProfile = 'Manual settings'; q.set('smart', '0'); if (graphicsToggle.checked) q.set('clarity','1'); else q.delete('clarity'); }
 			accessError.textContent = "";
 			accessLock.hidden = true;
 			resolve();
@@ -436,7 +519,7 @@ showModes();
 		if (m.choice && !startMode) { waitingChoice = true; modesEl.classList.add('ask'); showModes(); }		// the engine waits for the choice: showModes asks for it in the label
 		if (m.commit) { startCommitted = true; pickingMap = false; if (m.mode) startMode = m.mode; showModes(); }		// the engine took the choice
 		if (m.compiling !== undefined && !waitingChoice) { label.textContent = lastLabel = 'Preparing shaders'; target = Math.max(target, 99); }		// the world is up; the GPU worker holds it until its pipelines are compiled
-		if (m.world) { ready = true; hud.textContent = 'click the game to capture the mouse (Esc releases it, Shift+P switches keyboard mode, = shows FPS)'; setTimeout(() => { hud.textContent = ''; }, 15000); }
+		if (m.world) { ready = true; worldReadyForAdvisor = true; hud.textContent = 'Smart Advisor: ' + smartTuneProfile + ' · click the game to capture the mouse (Esc releases it, Shift+P switches keyboard mode, = shows FPS)'; advisorMessage.textContent = 'Profile: ' + smartTuneProfile + '. Watching frame rate so you can choose a lower-load mode if needed.'; advisorNotice.hidden = false; setTimeout(() => { hud.textContent = ''; }, 15000); setTimeout(() => { if (!fpsWarningShown) advisorNotice.hidden = true; }, 10000); }
 	};
 	// Between reports the bar creeps forward (at most 6 points past the last report) so a long stage does not look frozen.
 	const dataEl = document.getElementById('data');
@@ -479,7 +562,7 @@ const hud = document.getElementById('hud');
 {
 	const el = document.getElementById('fps');
 	let on = false;
-	new BroadcastChannel('game-fps').onmessage = (ev) => { if (on) el.textContent = Math.round(ev.data.fps) + ' FPS'; };
+	new BroadcastChannel('game-fps').onmessage = (ev) => { if (on) el.textContent = Math.round(ev.data.fps) + ' FPS'; observeSmartFps(ev.data.fps); };
 	const isToggle = (e) => e.code === 'Equal' && !e.ctrlKey && !e.altKey && !e.metaKey;
 	addEventListener('keydown', (e) => {
 		if (!isToggle(e)) return;
