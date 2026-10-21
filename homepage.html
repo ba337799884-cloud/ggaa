@@ -472,6 +472,7 @@ const worker = new Worker(BASE + '/loader.js');
 		syncPipelines: !!q.get('syncpipelines'),		// ?syncpipelines=1: the GPU worker compiles pipelines synchronously (no draws skipped while one compiles)
 		record: !!q.get('record'),		// ?record=1: log the boot read set (io_worker.js), for record_bootset.py
 		lowMemory,
+		clarity: q.get('clarity') === '1',		// ?clarity=1: optional GPU sharpening pass; not AI upscaling
 	}, [offscreen]);
 }
 
