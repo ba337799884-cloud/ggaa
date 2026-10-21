@@ -114,7 +114,7 @@ check("function chooseSmartGraphicsProfile()" in module
       and "observeSmartFps(ev.data.fps)" in module
       and "function restartInSafeMode()" in module,
       "smart advisor tunes settings and detects sustained low FPS")
-check('fetch("/api/game-ai")' in module and "async function askGameAI()" in module,
+check('fetch("/api/game-ai"' in module and "async function askGameAI()" in module,
       "in-game AI coach calls the server endpoint")
 check("gameAiLastFps = Number(ev.data.fps)" in module,
       "in-game AI can use the latest reported FPS")
