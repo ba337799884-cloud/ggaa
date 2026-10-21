@@ -70,7 +70,7 @@ required_ids = {
     "canvas", "loading", "label", "pct", "fill", "fps", "hud",
     "access-lock", "access-form", "access-code", "access-error",
     "game-doctor", "doctor-title", "doctor-advice", "doctor-detail",
-    "doctor-reload", "doctor-copy", "doctor-close",
+    "doctor-reload", "doctor-safe", "doctor-copy", "doctor-close",
 }
 missing_ids = sorted(required_ids - audit.ids)
 check(not missing_ids, "required game/access/diagnostics elements exist" if not missing_ids else
@@ -95,6 +95,9 @@ if module:
           "runtime error diagnostics are connected")
     check("quiet > 60" in module and "stallReported" in module,
           "stalled-load diagnostics are connected")
+    check('id="doctor-safe"' in html and "safeUrl.searchParams.set('low', '1')" in module
+          and "safeUrl.searchParams.delete('clarity')" in module,
+          "safe-mode recovery switches to a lower-load profile")
 
 check("clarity: q.get('clarity') === '1'" in html
       and "gq.set('clarity', '1')" in loader
