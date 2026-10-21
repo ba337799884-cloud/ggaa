@@ -36,6 +36,8 @@ const OP = {
 };
 
 const isNode = typeof process !== 'undefined' && !!(process.versions && process.versions.node);
+// Optional conventional sharpening. This is a post-process, not AI upscaling.
+const clarityEnabled = !isNode && new URLSearchParams(self.location.search).get('clarity') === '1';
 let parentPort = null;
 if (isNode) parentPort = require('worker_threads').parentPort;
 
@@ -2414,15 +2416,30 @@ function clearDS(id, mip, slice, flags, depth, stencil) {
 
 // Present: in a browser, blit the back buffer into the canvas; in Node there is no surface (screenshots are explicit).
 function makeBlit() {
+	const fragment = clarityEnabled ? `
+		@fragment fn fs(@builtin(position) pos: vec4f) -> @location(0) vec4f {
+			let dimensions = vec2i(textureDimensions(src, 0));
+			let p = clamp(vec2i(pos.xy), vec2i(0), dimensions - vec2i(1));
+			let center = textureLoad(src, p, 0);
+			let north = textureLoad(src, clamp(p + vec2i(0, -1), vec2i(0), dimensions - vec2i(1)), 0);
+			let south = textureLoad(src, clamp(p + vec2i(0, 1), vec2i(0), dimensions - vec2i(1)), 0);
+			let west = textureLoad(src, clamp(p + vec2i(-1, 0), vec2i(0), dimensions - vec2i(1)), 0);
+			let east = textureLoad(src, clamp(p + vec2i(1, 0), vec2i(0), dimensions - vec2i(1)), 0);
+			let average = (north.rgb + south.rgb + west.rgb + east.rgb) * 0.25;
+			let sharpened = clamp(center.rgb + (center.rgb - average) * 0.20, vec3f(0.0), vec3f(1.0));
+			return vec4f(sharpened, center.a);
+		}`
+		: `
+		@fragment fn fs(@builtin(position) pos: vec4f) -> @location(0) vec4f {
+			return textureLoad(src, vec2i(pos.xy), 0);
+		}`;
 	const module = device.createShaderModule({ code: `
 		@group(0) @binding(0) var src: texture_2d<f32>;
 		@vertex fn vs(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
 			var p = array<vec2f, 3>(vec2f(-1, -1), vec2f(3, -1), vec2f(-1, 3));
 			return vec4f(p[i], 0, 1);
 		}
-		@fragment fn fs(@builtin(position) pos: vec4f) -> @location(0) vec4f {
-			return textureLoad(src, vec2i(pos.xy), 0);
-		}` });
+		${fragment}` });
 	blit = device.createRenderPipeline({
 		layout: 'auto',
 		vertex: { module, entryPoint: 'vs' },
