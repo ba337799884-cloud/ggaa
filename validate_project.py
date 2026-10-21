@@ -68,7 +68,7 @@ except Exception as exc:
 
 required_ids = {
     "canvas", "loading", "label", "pct", "fill", "fps", "hud",
-    "access-lock", "access-form", "access-code", "access-error",
+    "access-lock", "access-form", "access-code", "access-error", "graphics-plus",
     "game-doctor", "doctor-title", "doctor-advice", "doctor-detail",
     "doctor-reload", "doctor-safe", "doctor-copy", "doctor-close",
 }
@@ -99,6 +99,8 @@ if module:
           and "safeUrl.searchParams.delete('clarity')" in module,
           "safe-mode recovery switches to a lower-load profile")
 
+check("graphics-plus" in html and "Graphics Plus" in html,
+      "graphics enhancement toggle is visible in the access screen")
 check("clarity: q.get('clarity') === '1'" in html
       and "gq.set('clarity', '1')" in loader
       and "const clarityEnabled" in gpu_worker

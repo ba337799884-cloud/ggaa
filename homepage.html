@@ -53,6 +53,10 @@
 	#access-submit:hover { background: #ffda65; }
 	#access-error { min-height: 20px; margin: 10px 0 0; color: #ff8f8f; font-size: 12px; }
 	.access-free { margin-top: 18px; color: #787f88; font-size: 10px; letter-spacing: .15em; text-align: center; }
+	.access-enhance { display: flex; align-items: flex-start; gap: 10px; margin-top: 18px; padding: 12px; border: 1px solid #414852; border-radius: 5px; background: #171b20; cursor: pointer; }
+	.access-enhance input { margin-top: 3px; accent-color: #f0c341; width: 16px; height: 16px; flex: 0 0 auto; }
+	.access-enhance strong { display: block; color: #f0c341; font-size: 11px; letter-spacing: .09em; }
+	.access-enhance small { display: block; margin-top: 4px; color: #aeb6c0; font-size: 11px; line-height: 1.4; }
 
 
 	#game-doctor[hidden] { display: none !important; }
@@ -98,6 +102,10 @@
 		<p>This game is free to play. Enter your access code to continue.</p>
 		<label for="access-code">ACCESS CODE</label>
 		<input id="access-code" name="access-code" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" required aria-describedby="access-error">
+		<label class="access-enhance" for="graphics-plus">
+			<input id="graphics-plus" type="checkbox">
+			<span><strong>GRAPHICS PLUS · AI-INSPIRED</strong><small>Sharper image and subtle color/contrast tuning. This is a lightweight shader effect, not a separate AI model.</small></span>
+		</label>
 		<button id="access-submit" type="submit">UNLOCK GAME</button>
 		<p id="access-error" role="status" aria-live="polite"></p>
 		<div class="access-free">FREE PLAY · ACCESS CODE REQUIRED</div>
@@ -109,6 +117,16 @@
 // main() run and which may block); the page only owns the canvas, which is transferred to that worker and on to the GPU worker.
 // Query string: ?args=-flag1,-flag2=value (added to the engine command line), ?shot=N (screenshot of every N-th present to the dev server).
 const q = new URLSearchParams(location.search);
+const graphicsToggle = document.getElementById('graphics-plus');
+graphicsToggle.checked = q.get('clarity') === '1';
+graphicsToggle.addEventListener('change', () => {
+	if (graphicsToggle.checked) q.set('clarity', '1');
+	else q.delete('clarity');
+	const nextUrl = new URL(location.href);
+	if (graphicsToggle.checked) nextUrl.searchParams.set('clarity', '1');
+	else nextUrl.searchParams.delete('clarity');
+	history.replaceState(null, '', nextUrl);
+});
 
 const doctorPanel = document.getElementById('game-doctor');
 const doctorTitle = document.getElementById('doctor-title');

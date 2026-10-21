@@ -2426,8 +2426,12 @@ function makeBlit() {
 			let west = textureLoad(src, clamp(p + vec2i(-1, 0), vec2i(0), dimensions - vec2i(1)), 0);
 			let east = textureLoad(src, clamp(p + vec2i(1, 0), vec2i(0), dimensions - vec2i(1)), 0);
 			let average = (north.rgb + south.rgb + west.rgb + east.rgb) * 0.25;
-			let sharpened = clamp(center.rgb + (center.rgb - average) * 0.20, vec3f(0.0), vec3f(1.0));
-			return vec4f(sharpened, center.a);
+			// Lightweight edge sharpening plus restrained color grading. This is a GPU shader effect, not neural AI upscaling.
+			let sharpened = clamp(center.rgb + (center.rgb - average) * 0.24, vec3f(0.0), vec3f(1.0));
+			let luminance = dot(sharpened, vec3f(0.2126, 0.7152, 0.0722));
+			let saturated = mix(vec3f(luminance), sharpened, 1.045);
+			let graded = clamp((saturated - vec3f(0.5)) * 1.035 + vec3f(0.5), vec3f(0.0), vec3f(1.0));
+			return vec4f(graded, center.a);
 		}`
 		: `
 		@fragment fn fs(@builtin(position) pos: vec4f) -> @location(0) vec4f {
