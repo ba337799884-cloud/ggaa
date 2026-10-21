@@ -27,7 +27,11 @@ Real performance depends on your device, browser, GPU, and available game data. 
 
 ## Access code
 
-The project can show a client-side access prompt before the game starts. A code embedded in browser JavaScript is only a casual gate; anyone can inspect the source. Use server-side authentication for real private access.
+The game now shows a client-side access prompt before the engine starts. Enter the configured code `Abdullah_Chico` to continue. This is a casual gate only: the code is stored in browser JavaScript and can be inspected, so it is not secure private authentication.
+
+## Diagnostics and recovery
+
+The browser page includes a Game Doctor panel for JavaScript errors, failed engine tasks, GPU device loss, and startup stalls. It records basic browser capability information and lets you copy a diagnostic report or reload. This is rule-based diagnostics, not an AI system, and it cannot rewrite broken engine code automatically. The repository also includes an automated syntax/guard check workflow to catch several source-level problems before release.
 
 ## Notes
 
