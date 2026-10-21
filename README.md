@@ -31,7 +31,11 @@ The game now shows a client-side access prompt before the engine starts. Enter t
 
 ## Diagnostics and recovery
 
-The browser page includes a Smart Performance Advisor that uses on-device hardware hints to pick an Efficiency, Balanced, or Quality profile and watches reported FPS after the world loads. It can recommend a lower-load restart. This is deterministic, local rules-based assistance—not a trained AI model or a promise of 4K/60 FPS on every device. The Game Doctor detects JavaScript errors, failed engine tasks, GPU device loss, and startup stalls, and offers diagnostics, reload, and safe-mode recovery. This is rule-based diagnostics, not an AI system, and it cannot rewrite broken engine code automatically. The repository also includes an automated syntax/guard check workflow to catch several source-level problems before release.
+The browser page includes a local Smart Performance Advisor for automatic settings and live FPS warnings, plus a server-backed Game Performance Coach using Cloudflare Workers AI through `functions/api/game-ai.js`. The actual AI requires a Workers AI binding named `AI` on the Cloudflare Pages project; without that binding, the API intentionally returns a helpful setup error. Follow [Cloudflare's Pages binding guide](https://developers.cloudflare.com/pages/functions/bindings/) and add Workers AI with binding name `AI`, then redeploy. Workers AI usage may incur charges. The game still uses conventional WebGPU sharpening and color tuning; it does not automatically gain DLSS, RTX ray tracing, or a Forza Horizon rendering engine. The Game Doctor detects JavaScript errors, failed engine tasks, GPU device loss, and startup stalls, and offers diagnostics, reload, and safe-mode recovery.
+
+## AI service endpoint
+
+The game coach sends only a bounded summary of device capabilities, the current profile, FPS, and a short visible issue summary to `/api/game-ai`. It does not upload full source files or browser logs. The function limits request size and applies a soft per-isolate rate limit; production hosting should also enable platform-level rate limiting and verify AI usage limits. Keep the code gate in mind: the browser access prompt is not server-side authentication, so it should not be treated as a secure authorization boundary.
 
 ## Notes
 
