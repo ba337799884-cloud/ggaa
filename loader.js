@@ -14,7 +14,8 @@ self.onmessage = (ev) => {
 	if (m.slots) gq.set('slots', m.slots);
 	if (m.syncPipelines) gq.set('syncpipelines', '1');
 	if (m.remoteLog) gq.set('log', '1');		// ?log=1 on the page: its log lines go to the dev server (off by default)
-	if (m.lowMemory) gq.set('low', '1');		// the low-memory profile: its own pipeline seed (wgpu_worker.js loadRecipes)
+	if (m.lowMemory) gq.set('low', '1');
+	if (m.clarity) gq.set('clarity', '1');		// optional GPU clarity/sharpening pass		// the low-memory profile: its own pipeline seed (wgpu_worker.js loadRecipes)
 	if (m.noPack) gq.set('nopack', '1');		// ?nopack=1: shaders one by one instead of from the packs (diagnostics)
 	if (m.shotRt) gq.set('shotrt', '1');		// ?shotrt=1 (with ?shot=N): every render target of one frame after the world is shown goes to the dev server (diagnosis)
 	if (m.gpuLimits) gq.set('limits', m.gpuLimits);		// ?limits=name:value,...: a smaller device (diagnosis of weaker GPUs)
